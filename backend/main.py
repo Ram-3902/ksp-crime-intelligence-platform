@@ -19,9 +19,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from seed import seed
+
 @app.on_event("startup")
 def on_startup():
     create_db_and_tables()
+    try:
+        seed()
+    except Exception as e:
+        print(f"[WARNING] Database seed error: {e}")
+
 
 app.include_router(auth.router)
 app.include_router(kpis.router)

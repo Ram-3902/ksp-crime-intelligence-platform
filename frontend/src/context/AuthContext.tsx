@@ -33,24 +33,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (u: string, p: string) => {
+    const cleanU = u.trim().toLowerCase();
     try {
       // Try backend API first
-      const data = await api.login(u, p);
+      const data = await api.login(cleanU, p);
       setToken(data.access_token);
       setUser(data.user);
       localStorage.setItem("ksp_token", data.access_token);
       localStorage.setItem("ksp_user", JSON.stringify(data.user));
     } catch (err: any) {
-      // Fallback for cloud deployment when FastAPI backend is offline
+      // Fallback for cloud deployment when FastAPI backend is offline or unreachable
       if (
-        (u === "analyst" && p === "Analyst@123") ||
-        (u === "admin" && p === "Admin@123") ||
-        (u === "viewer" && p === "Viewer@123")
+        (cleanU === "analyst" && p === "Analyst@123") ||
+        (cleanU === "admin" && p === "Admin@123") ||
+        (cleanU === "viewer" && p === "Viewer@123")
       ) {
         const mockUser: User = {
-          username: u,
-          full_name: u === "admin" ? "SCRB Administrator" : u === "viewer" ? "District Officer" : "Crime Analyst",
-          role: u,
+          username: cleanU,
+          full_name: cleanU === "admin" ? "SCRB Administrator" : cleanU === "viewer" ? "District Officer" : "Crime Analyst",
+          role: cleanU,
           division: "SCRB HQ",
         };
         const mockToken = "mock_jwt_token_catalyst_deployment";
@@ -59,7 +60,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem("ksp_token", mockToken);
         localStorage.setItem("ksp_user", JSON.stringify(mockUser));
       } else {
-        throw new Error("Invalid username or password");
+        const detailMsg = err.response?.data?.detail || err.message || "Invalid username or password";
+        throw new Error(detailMsg);
       }
     }
   };
