@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="KSP Crime Intelligence & Analytical Platform — Karnataka State Police SCRB Advanced Analytics Dashboard" />
+  <title>KSP CIAP | Crime Intelligence & Analytical Platform</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <!-- Our CSS -->
+  <link rel="stylesheet" href="css/style.css" />
+
+  <!-- Map popup style override -->
+  <style>
+    .ksp-popup .leaflet-popup-content-wrapper {
+      background: #ffffff;
+      border: 1px solid #dde3ec;
+      border-radius: 6px;
+      color: #1a2332;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .ksp-popup .leaflet-popup-tip { background: #ffffff; }
+    .map-district-label {
+      font-family: 'Inter', sans-serif;
+      font-size: 9px;
+      font-weight: 600;
+      color: rgba(30,58,110,0.75);
+      text-shadow: 0 0 4px rgba(255,255,255,0.9);
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .dark-tiles { filter: saturate(0.7) brightness(1.05); }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- ═══════════════ SIDEBAR ═══════════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <div class="logo-icon">🛡️</div>
+        <div>
+          <h1>KSP CIAP</h1>
+          <div class="subtitle">Crime Intelligence Platform</div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Intelligence</div>
+
+      <button class="nav-item" data-page="dashboard"
+        data-title="Command &amp; Control Dashboard"
+        data-subtitle="Real-time crime intelligence overview — Karnataka 2024">
+        <span class="nav-icon">📊</span>
+        <span>Overview Dashboard</span>
+      </button>
+
+      <button class="nav-item" data-page="map"
+        data-title="Geospatial Crime Map"
+        data-subtitle="District-level hotspot visualization with spatiotemporal clusters">
+        <span class="nav-icon">🗺️</span>
+        <span>Crime Heatmap</span>
+      </button>
+
+      <button class="nav-item" data-page="network"
+        data-title="Criminal Network &amp; Link Analysis"
+        data-subtitle="Relationship mapping: suspects, victims, locations, and gang connections">
+        <span class="nav-icon">🕸️</span>
+        <span>Network Analysis</span>
+      </button>
+
+      <div class="nav-section-label">AI/ML Analytics</div>
+
+      <button class="nav-item" data-page="predictive"
+        data-title="Predictive Risk Scoring &amp; Anomaly Detection"
+        data-subtitle="AI-driven risk forecasting with socio-economic correlation overlays">
+        <span class="nav-icon">🤖</span>
+        <span>Predictive Analytics</span>
+        <span class="badge">NEW</span>
+      </button>
+
+      <button class="nav-item" data-page="trends"
+        data-title="Pattern &amp; Trend Discovery"
+        data-subtitle="Spatiotemporal hotspot identification and MO analysis">
+        <span class="nav-icon">📈</span>
+        <span>Trend Discovery</span>
+      </button>
+
+      <div class="nav-section-label">Intelligence Records</div>
+
+      <button class="nav-item" data-page="offenders"
+        data-title="Offender Profiles &amp; Repeat Offender Tracking"
+        data-subtitle="MO-linked profiles across jurisdictions with risk classification">
+        <span class="nav-icon">🧑‍💼</span>
+        <span>Offender Profiles</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar">SC</div>
+        <div>
+          <div class="user-name">SCRB Analyst</div>
+          <div class="user-role">State Crime Records Bureau</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══════════════ MAIN ═══════════════ -->
+  <main class="main-content">
+
+    <!-- Top Bar -->
+    <header class="topbar">
+      <div class="topbar-title">
+        <h2>Command &amp; Control Dashboard</h2>
+        <p>Real-time crime intelligence overview — Karnataka 2024</p>
+      </div>
+      <div class="topbar-actions">
+        <span style="font-size:0.75rem;color:#475569;font-family:'JetBrains Mono',monospace" id="live-clock">00:00:00</span>
+        <button class="topbar-btn" onclick="window.print()">⬇️ Export</button>
+        <button class="topbar-btn primary">
+          <span class="topbar-alert-dot"></span>
+          3 Alerts
+        </button>
+      </div>
+    </header>
+
+    <!-- ═══════════ PAGE: DASHBOARD ═══════════ -->
+    <section class="page-content">
+    <div id="page-dashboard" class="page">
+
+      <!-- KPI Cards -->
+      <div id="kpi-cards" class="kpi-grid"></div>
+
+      <!-- Crime Trend + Donut -->
+      <div class="grid-13">
+        <div class="card">
+          <div class="card-header">
+            <h4>📈 Crime Trend Analysis <span style="font-size:0.7rem;color:#475569;font-weight:400">(Monthly 2023–2024)</span></h4>
+            <span class="card-badge badge-blue">Live</span>
+          </div>
+          <div class="card-body">
+            <div class="chart-wrap chart-h300">
+              <canvas id="crimeTrendChart"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h4>🔵 Crime Composition 2024</h4>
+            <span class="card-badge badge-cyan">All Districts</span>
+          </div>
+          <div class="card-body">
+            <div class="chart-wrap chart-h300">
+              <canvas id="crimeDonutChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- District Bar + YoY -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <h4>🏛️ Crime Volume by District</h4>
+            <span class="card-badge badge-yellow">Top 10</span>
+          </div>
+          <div class="card-body">
+            <div class="chart-wrap chart-h260">
+              <canvas id="districtBarChart"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h4>📅 Year-over-Year Comparison</h4>
+            <span class="card-badge badge-purple">2022–2024</span>
+          </div>
+          <div class="card-body">
+            <div class="chart-wrap chart-h260">
+              <canvas id="yoyChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Time of Day + Top Districts -->
+      <div class="grid-13">
+        <div class="card">
+          <div class="card-header">
+            <h4>⏱️ Crime by Time of Day</h4>
+            <span class="card-badge badge-green">Spatiotemporal</span>
+          </div>
+          <div class="card-body">
+            <div class="chart-wrap chart-h260">
+              <canvas id="timeOfDayChart"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h4>🔴 Top Districts at Risk</h4>
+            <span class="card-badge badge-red">AI Risk Score</span>
+          </div>
+          <div class="card-body" style="padding:0">
+            <table class="data-table">
+              <thead><tr>
+                <th>#</th><th>District</th><th>Crimes</th><th>Risk Score</th><th>Trend</th><th>Zone</th>
+              </tr></thead>
+              <tbody id="top-districts-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ PAGE: CRIME MAP ═══════════ -->
+    <div id="page-map" class="page">
+      <div class="section-header">
+        <div>
+          <h3>🗺️ Geospatial Crime Intelligence Map</h3>
+          <p>Interactive district-level crime hotspot visualization with spatiotemporal cluster identification</p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="zone-alert zone-red"><span class="zone-dot"></span>3 Critical Zones</span>
+          <span class="zone-alert zone-orange">5 High Risk</span>
+          <span class="zone-alert zone-yellow">7 Moderate</span>
+        </div>
+      </div>
+
+      <div class="card map-card" style="margin-bottom:20px">
+        <div class="card-header">
+          <h4>🔥 Crime Hotspot Overlay — Filter by Type</h4>
+          <span class="card-badge badge-blue">Live Data</span>
+        </div>
+        <div class="map-toolbar">
+          <button class="map-filter-btn active" data-type="ALL">All Crimes</button>
+          <button class="map-filter-btn" data-type="THEFT">Theft</button>
+          <button class="map-filter-btn" data-type="ASSAULT">Assault</button>
+          <button class="map-filter-btn" data-type="MURDER">Murder</button>
+          <button class="map-filter-btn" data-type="ROBBERY">Robbery</button>
+          <button class="map-filter-btn" data-type="CYBER">Cybercrime</button>
+          <button class="map-filter-btn" data-type="DRUG">Drug</button>
+          <button class="map-filter-btn" data-type="FRAUD">Fraud</button>
+        </div>
+        <div id="crime-map"></div>
+      </div>
+
+      <!-- Map stats -->
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-header"><h4>🔴 Critical Hotspots</h4></div>
+          <div class="card-body">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.8rem">
+                <span style="color:#94a3b8">Kengeri, BLR</span>
+                <span class="zone-alert zone-red" style="padding:2px 8px">Drug — 9/10</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.8rem">
+                <span style="color:#94a3b8">Whitefield, BLR</span>
+                <span class="zone-alert zone-red" style="padding:2px 8px">Cyber — 9/10</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.8rem">
+                <span style="color:#94a3b8">Kalaburagi City</span>
+                <span class="zone-alert zone-red" style="padding:2px 8px">Murder — 8/10</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.8rem">
+                <span style="color:#94a3b8">MG Road, BLR</span>
+                <span class="zone-alert zone-orange" style="padding:2px 8px">Theft — 8/10</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h4>📊 Hotspot Statistics</h4></div>
+          <div class="card-body">
+            <div class="radial-grid" style="grid-template-columns:1fr 1fr">
+              <div class="radial-item">
+                <div class="radial-value" style="color:#ef4444">19</div>
+                <div class="radial-label">Active Hotspots</div>
+              </div>
+              <div class="radial-item">
+                <div class="radial-value" style="color:#f59e0b">7</div>
+                <div class="radial-label">Urban Clusters</div>
+              </div>
+              <div class="radial-item">
+                <div class="radial-value" style="color:#8b5cf6">3</div>
+                <div class="radial-label">Critical Zones</div>
+              </div>
+              <div class="radial-item">
+                <div class="radial-value" style="color:#10b981">12</div>
+                <div class="radial-label">Districts Covered</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h4>💡 Emerging Trend Alerts</h4></div>
+          <div class="card-body">
+            <div style="display:flex;flex-direction:column;gap:8px;font-size:0.78rem">
+              <div style="padding:8px;background:rgba(239,68,68,0.08);border-radius:6px;border-left:3px solid #ef4444">
+                <strong style="color:#ef4444">CYBER ↑44%</strong>
+                <div style="color:#94a3b8;margin-top:2px">Bengaluru Urban — YoY surge in banking fraud</div>
+              </div>
+              <div style="padding:8px;background:rgba(245,158,11,0.08);border-radius:6px;border-left:3px solid #f59e0b">
+                <strong style="color:#f59e0b">ROBBERY ↑NH-44</strong>
+                <div style="color:#94a3b8;margin-top:2px">Kalaburagi — 3 incidents in 10 days</div>
+              </div>
+              <div style="padding:8px;background:rgba(139,92,246,0.08);border-radius:6px;border-left:3px solid #8b5cf6">
+                <strong style="color:#8b5cf6">DRUG ↑Coastal</strong>
+                <div style="color:#94a3b8;margin-top:2px">Mangaluru port — new entry route suspected</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ PAGE: NETWORK ANALYSIS ═══════════ -->
+    <div id="page-network" class="page">
+      <div class="section-header">
+        <div>
+          <h3>🕸️ Criminal Network &amp; Link Analysis</h3>
+          <p>Force-directed relationship mapping — click nodes to highlight connections, drag to explore</p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <span class="card-badge badge-red">4 Active Gangs</span>
+          <span class="card-badge badge-yellow">10 Suspects</span>
+          <span class="card-badge badge-green">5 Victims</span>
+          <span class="card-badge badge-purple">5 Locations</span>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+          <h4>🔗 Suspect-Victim-Location Network Graph</h4>
+          <span class="card-badge badge-cyan">D3 Force Graph</span>
+        </div>
+        <svg id="network-svg"></svg>
+        <div id="network-tooltip" class="node-tooltip" style="display:none"></div>
+      </div>
+
+      <div id="network-legend" style="padding:10px 18px 16px"></div>
+
+      <!-- Gang Profiles -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><h4>🕵️ Gang Intelligence — Active Groups</h4></div>
+          <div class="card-body" style="padding:0">
+            <table class="data-table">
+              <thead><tr><th>Gang</th><th>Members</th><th>District</th><th>Speciality</th><th>Risk</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><strong style="color:#e2e8f0">Cyber Gang Alpha</strong></td>
+                  <td>3</td><td>BLR Urban</td><td>Cybercrime, Fraud</td>
+                  <td><span class="risk-badge risk-CRITICAL">CRITICAL</span></td>
+                </tr>
+                <tr>
+                  <td><strong style="color:#e2e8f0">Road Wolves</strong></td>
+                  <td>4</td><td>KAL / BAL</td><td>Highway Robbery</td>
+                  <td><span class="risk-badge risk-HIGH">HIGH</span></td>
+                </tr>
+                <tr>
+                  <td><strong style="color:#e2e8f0">NH Syndicate</strong></td>
+                  <td>2</td><td>HUB / BEL</td><td>Violent Assault</td>
+                  <td><span class="risk-badge risk-CRITICAL">CRITICAL</span></td>
+                </tr>
+                <tr>
+                  <td><strong style="color:#e2e8f0">Coastal Cartel</strong></td>
+                  <td>2</td><td>MAN / MYS</td><td>Drug Trafficking</td>
+                  <td><span class="risk-badge risk-HIGH">HIGH</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h4>🔍 Association Detection Insights</h4></div>
+          <div class="card-body">
+            <div style="display:flex;flex-direction:column;gap:10px;font-size:0.78rem">
+              <div style="padding:10px;background:rgba(239,68,68,0.06);border-radius:6px;border:1px solid rgba(239,68,68,0.15)">
+                <strong style="color:#ef4444">Cross-Gang Link Detected</strong>
+                <div style="color:#94a3b8;margin-top:4px">S001 (Cyber Gang Alpha) linked to S003 (Road Wolves) — possible money laundering channel discovered</div>
+              </div>
+              <div style="padding:10px;background:rgba(245,158,11,0.06);border-radius:6px;border:1px solid rgba(245,158,11,0.15)">
+                <strong style="color:#f59e0b">Repeat Victim Pattern</strong>
+                <div style="color:#94a3b8;margin-top:4px">V001 (Anita K.) targeted by 2 different suspects — suggests targeted approach or insider information</div>
+              </div>
+              <div style="padding:10px;background:rgba(139,92,246,0.06);border-radius:6px;border:1px solid rgba(139,92,246,0.15)">
+                <strong style="color:#8b5cf6">Location Hub: ATM Cluster WF</strong>
+                <div style="color:#94a3b8;margin-top:4px">12 incidents linked to Whitefield ATM cluster — coordinated team with advance surveillance</div>
+              </div>
+              <div style="padding:10px;background:rgba(6,182,212,0.06);border-radius:6px;border:1px solid rgba(6,182,212,0.15)">
+                <strong style="color:#06b6d4">NH-44 Corridor</strong>
+                <div style="color:#94a3b8;margin-top:4px">15 incidents linked to this location across 2 gangs — coordinated highway robbery network suspected</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ PAGE: PREDICTIVE ANALYTICS ═══════════ -->
+    <div id="page-predictive" class="page">
+      <div class="section-header">
+        <div>
+          <h3>🤖 AI-Driven Predictive Risk &amp; Anomaly Detection</h3>
+          <p>Machine learning risk scoring, socio-economic correlation, and outlier detection</p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <span class="card-badge badge-red">3 Unresolved Anomalies</span>
+          <span class="card-badge badge-purple">AI Forecasting Active</span>
+        </div>
+      </div>
+
+      <!-- Risk Score Table -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <h4>🎯 District Risk Score Matrix <span style="font-size:0.7rem;color:#475569;font-weight:400">— AI Composite Score (0–100)</span></h4>
+          <span class="card-badge badge-red">Predictive</span>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="data-table">
+            <thead><tr>
+              <th>District</th>
+              <th>Overall Risk</th>
+              <th>Cyber</th>
+              <th>Violent</th>
+              <th>Property</th>
+              <th>Drug</th>
+              <th>Trend</th>
+            </tr></thead>
+            <tbody id="risk-table-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Radar + Anomalies -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <h4>📡 Multi-Dimensional Risk Radar</h4>
+            <span class="card-badge badge-purple">Top 5 Districts</span>
+          </div>
+          <div class="card-body">
+            <div class="chart-wrap chart-h340">
+              <canvas id="riskRadarChart"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h4>⚠️ Anomaly Detection Alerts</h4>
+            <span class="card-badge badge-red">Active Incidents</span>
+          </div>
+          <div class="card-body" style="padding:12px">
+            <div id="anomaly-list" class="anomaly-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Socio correlation + Forecast -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <h4>📊 Socio-Economic Crime Correlation</h4>
+            <span class="card-badge badge-green">Unemployment vs Crime Rate</span>
+          </div>
+          <div class="card-body">
+            <div class="chart-wrap chart-h300">
+              <canvas id="socioChart"></canvas>
+            </div>
+            <p style="font-size:0.68rem;color:#475569;margin-top:8px">Bubble size = population. X = unemployment rate. Y = crimes per 100k population.</p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h4>🔮 AI Cybercrime Forecast — Next 6 Months</h4>
+            <span class="card-badge badge-purple">ML Prediction</span>
+          </div>
+          <div class="card-body">
+            <div class="chart-wrap chart-h300">
+              <canvas id="predictiveTimeline"></canvas>
+            </div>
+            <p style="font-size:0.68rem;color:#475569;margin-top:8px">Shaded region = 92–108% confidence interval. Based on 24-month trend regression.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ PAGE: TRENDS ═══════════ -->
+    <div id="page-trends" class="page">
+      <div class="section-header">
+        <div>
+          <h3>📈 Pattern &amp; Trend Discovery</h3>
+          <p>Spatiotemporal crime clustering, MO analysis, and year-over-year evolution</p>
+        </div>
+      </div>
+
+      <!-- Heatmap -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <h4>🟥 Day × Hour Crime Density Heatmap</h4>
+          <span class="card-badge badge-red">Spatiotemporal</span>
+        </div>
+        <div class="card-body" style="overflow-x:auto">
+          <div id="pattern-heatmap"></div>
+          <div id="pattern-hm-tooltip" class="node-tooltip" style="display:none;position:fixed"></div>
+        </div>
+      </div>
+
+      <!-- YoY Evolution + MO -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <h4>📊 Crime Type Growth Rates YoY</h4>
+            <span class="card-badge badge-cyan">2022 → 2024</span>
+          </div>
+          <div class="card-body">
+            <div class="chart-wrap chart-h300">
+              <canvas id="crimeEvolutionChart"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h4>🎯 Modus Operandi Frequency Analysis</h4>
+            <span class="card-badge badge-purple">Top MOs</span>
+          </div>
+          <div class="card-body">
+            <div class="chart-wrap chart-h300">
+              <canvas id="moAnalysisChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Offenders Table in Trends -->
+      <div class="card">
+        <div class="card-header">
+          <h4>⚠️ Repeat Offender Analysis — Risk Ranked</h4>
+          <span class="card-badge badge-red">High Priority</span>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="data-table">
+            <thead><tr>
+              <th>ID</th><th>Name</th><th>Age</th><th>District</th>
+              <th>Arrests</th><th>Convictions</th><th>Risk</th><th>MO</th><th>Status</th>
+            </tr></thead>
+            <tbody id="offenders-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ PAGE: OFFENDER PROFILES ═══════════ -->
+    <div id="page-offenders" class="page">
+      <div class="section-header">
+        <div>
+          <h3>🧑‍💼 Offender Intelligence Profiles</h3>
+          <p>Repeat offender tracking with MO linkage across districts and jurisdictions</p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <span class="zone-alert zone-red">2 Critical</span>
+          <span class="zone-alert zone-orange">4 High Risk</span>
+          <span class="zone-alert zone-yellow">4 Medium Risk</span>
+        </div>
+      </div>
+
+      <!-- Filter -->
+      <div class="filter-bar">
+        <button class="filter-chip active" onclick="filterOffenders('ALL',this)">All</button>
+        <button class="filter-chip" onclick="filterOffenders('CRITICAL',this)">Critical Risk</button>
+        <button class="filter-chip" onclick="filterOffenders('HIGH',this)">High Risk</button>
+        <button class="filter-chip" onclick="filterOffenders('MEDIUM',this)">Medium Risk</button>
+        <button class="filter-chip" onclick="filterOffenders('Absconding',this)">Absconding</button>
+        <button class="filter-chip" onclick="filterOffenders('In Custody',this)">In Custody</button>
+      </div>
+
+      <div id="offender-cards" class="offender-grid"></div>
+
+      <!-- Gang connections summary -->
+      <div class="card" style="margin-top:20px">
+        <div class="card-header">
+          <h4>🕵️ Gang Affiliation Summary</h4>
+          <span class="card-badge badge-purple">Known Networks</span>
+        </div>
+        <div class="card-body">
+          <div class="grid-2">
+            <div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <div style="padding:12px;background:rgba(239,68,68,0.06);border-radius:8px;border:1px solid rgba(239,68,68,0.15)">
+                  <div style="font-weight:700;color:#ef4444;margin-bottom:4px">Cyber Gang Alpha — BLR Urban</div>
+                  <div style="font-size:0.75rem;color:#94a3b8">Members: S001, S002, S007 | Estimated revenue: ₹4.2 Cr+</div>
+                  <div style="font-size:0.72rem;color:#475569;margin-top:4px">Speciality: SIM swap, phishing, banking fraud. Cross-state operations suspected.</div>
+                </div>
+                <div style="padding:12px;background:rgba(245,158,11,0.06);border-radius:8px;border:1px solid rgba(245,158,11,0.15)">
+                  <div style="font-weight:700;color:#f59e0b;margin-bottom:4px">Road Wolves — KAL / BAL / TUM</div>
+                  <div style="font-size:0.75rem;color:#94a3b8">Members: S003, S004, S010 | Active since 2021</div>
+                  <div style="font-size:0.72rem;color:#475569;margin-top:4px">Highway dacoity network. S003 absconding — last seen Hyderabad border area.</div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <div style="padding:12px;background:rgba(239,68,68,0.06);border-radius:8px;border:1px solid rgba(239,68,68,0.15)">
+                  <div style="font-weight:700;color:#ef4444;margin-bottom:4px">NH Syndicate — HUB / BEL</div>
+                  <div style="font-size:0.75rem;color:#94a3b8">Members: S008, S009 | 18 combined offenses</div>
+                  <div style="font-size:0.72rem;color:#475569;margin-top:4px">Targeted robbery and assault with escalating violence. Connected to 2 unsolved murder cases.</div>
+                </div>
+                <div style="padding:12px;background:rgba(139,92,246,0.06);border-radius:8px;border:1px solid rgba(139,92,246,0.15)">
+                  <div style="font-weight:700;color:#8b5cf6;margin-bottom:4px">Coastal Cartel — MAN / MYS</div>
+                  <div style="font-size:0.75rem;color:#94a3b8">Members: S005, S006 | Coastal entry route</div>
+                  <div style="font-size:0.72rem;color:#475569;margin-top:4px">Multi-drug courier network. Sea route entry via Mangaluru port suspected. Goa connections flagged.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </section>
+  </main>
+</div>
+
+<!-- ═══════════ SCRIPTS ═══════════ -->
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- D3.js -->
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<!-- Our modules -->
+<script src="js/data.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/map.js"></script>
+<script src="js/network.js"></script>
+<script src="js/predictive.js"></script>
+<script src="js/trends.js"></script>
+<script src="js/app.js"></script>
+
+<script>
+// Offender card filter
+function filterOffenders(filter, btn) {
+  document.querySelectorAll(".filter-chip").forEach(c => c.classList.remove("active"));
+  btn.classList.add("active");
+  const cards = document.querySelectorAll(".offender-card");
+  cards.forEach((card, i) => {
+    const o = KSP_DATA.offenders[i];
+    if (!o) return;
+    const show = filter === "ALL" || o.risk === filter || o.status === filter;
+    card.style.display = show ? "block" : "none";
+  });
+}
+</script>
+</body>
+</html>
